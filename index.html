@@ -4,13 +4,12 @@
   <meta charset="UTF-8">
   <title>Mach Trump Weg</title>
   <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; overflow: hidden; }
     body, html {
-      margin: 0;
-      padding: 0;
       height: 100%;
       text-align: center;
       font-family: sans-serif;
-      overflow: hidden;
+      background-color: black;
     }
     header {
       padding: 10px;
@@ -27,17 +26,16 @@
       margin: 0;
     }
     #canvas-container {
-      position: relative;
       width: 100%;
-      height: calc(100% - 120px);
-      background: black;
+      height: calc(100vh - 120px); /* Passt sich der Bildschirmhöhe an */
       display: flex;
       justify-content: center;
       align-items: center;
     }
     canvas {
-      max-width: 100%;
-      max-height: 100%;
+      width: auto;
+      height: 100%;
+      background-color: white;
     }
     #toolbar {
       position: fixed;
@@ -56,6 +54,7 @@
       font-size: 2em;
       display: none;
       border: 3px solid green;
+      z-index: 20;
     }
     .confetti {
       position: fixed;
@@ -94,7 +93,7 @@
     const ctx = canvas.getContext('2d');
     const image = new Image();
     image.crossOrigin = "Anonymous";
-    image.src = "https://raw.githubusercontent.com/machtrumpweg/machtrumpweg.github.io/refs/heads/main/TrumpPortrait.jpg"; // Eigener Bildlink
+    image.src = "https://raw.githubusercontent.com/machtrumpweg/machtrumpweg.github.io/refs/heads/main/TrumpPortrait.jpg"; // Bild aus Repository
 
     let isDrawing = false;
     let erasedPixels = 0;
@@ -102,23 +101,29 @@
     let eraserSize;
 
     function resizeCanvas() {
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
-      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-      calculateTotalPixels();
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight - 120;
+      drawImage();
       adjustEraserSize();
     }
 
+    function drawImage() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      calculateTotalPixels();
+    }
+
     function adjustEraserSize() {
-      eraserSize = Math.max(20, Math.min(canvas.width, canvas.height) * 0.05); // Anpassung für große und kleine Bildschirme
+      eraserSize = Math.max(20, Math.min(canvas.width, canvas.height) * 0.05);
     }
 
     function calculateTotalPixels() {
-      totalPixels = canvas.width * canvas.height;
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      totalPixels = imageData.data.length / 4;
       erasedPixels = 0;
     }
 
-    image.onload = resizeCanvas;
+    image.onload = drawImage;
     window.addEventListener('resize', resizeCanvas);
 
     function getMousePos(evt) {
@@ -174,9 +179,7 @@
     }
 
     function revertImage() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-      calculateTotalPixels();
+      drawImage();
     }
 
     document.getElementById('revertButton').addEventListener('click', revertImage);
