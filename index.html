@@ -29,10 +29,7 @@
     }
     
     canvas {
-      width: auto;
-      height: 100%;
-      background: url('https://raw.githubusercontent.com/machtrumpweg/machtrumpweg.github.io/refs/heads/main/TrumpPortrait.jpg') no-repeat center;
-      background-size: contain;
+      background-color: black;
     }
     
     #toolbar {
@@ -81,7 +78,11 @@
     let isDrawing = false;
     let erasedPixels = 0;
     let totalPixels = 0;
-    let eraserSize = 50;
+    let eraserSize = Math.max(window.innerWidth / 20, 30);
+
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.src = "https://raw.githubusercontent.com/machtrumpweg/machtrumpweg.github.io/refs/heads/main/TrumpPortrait.jpg";
 
     function resizeCanvas() {
       canvas.width = window.innerWidth;
@@ -91,26 +92,14 @@
 
     function drawBackground() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const img = new Image();
-      img.crossOrigin = "Anonymous";
-      img.src = "https://raw.githubusercontent.com/machtrumpweg/machtrumpweg.github.io/refs/heads/main/TrumpPortrait.jpg";
-      img.onload = function() {
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        calculateTotalPixels();
-      };
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      calculateTotalPixels();
     }
 
     function calculateTotalPixels() {
-      totalPixels = canvas.width * canvas.height;
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      totalPixels = imageData.data.length / 4;
       erasedPixels = 0;
-    }
-
-    function getMousePos(evt) {
-      const rect = canvas.getBoundingClientRect();
-      return {
-        x: (evt.clientX - rect.left) * (canvas.width / rect.width),
-        y: (evt.clientY - rect.top) * (canvas.height / rect.height)
-      };
     }
 
     function erase(x, y) {
@@ -138,6 +127,7 @@
 
     function showSuccess() {
       document.getElementById("successMessage").style.display = "block";
+      throwConfetti();
       setTimeout(() => {
         document.getElementById("successMessage").style.display = "none";
         revertImage();
@@ -152,14 +142,12 @@
 
     canvas.addEventListener('mousedown', (evt) => {
       isDrawing = true;
-      let pos = getMousePos(evt);
-      erase(pos.x, pos.y);
+      erase(evt.offsetX, evt.offsetY);
     });
 
     canvas.addEventListener('mousemove', (evt) => {
       if (isDrawing) {
-        let pos = getMousePos(evt);
-        erase(pos.x, pos.y);
+        erase(evt.offsetX, evt.offsetY);
       }
     });
 
@@ -171,23 +159,60 @@
       evt.preventDefault();
       isDrawing = true;
       let touch = evt.touches[0];
-      let pos = getMousePos(touch);
-      erase(pos.x, pos.y);
+      erase(touch.clientX, touch.clientY);
     });
 
     canvas.addEventListener('touchmove', (evt) => {
       evt.preventDefault();
       if (isDrawing) {
         let touch = evt.touches[0];
-        let pos = getMousePos(touch);
-        erase(pos.x, pos.y);
+        erase(touch.clientX, touch.clientY);
       }
     });
 
     canvas.addEventListener('touchend', () => isDrawing = false);
 
+    function throwConfetti() {
+      const confettiContainer = document.createElement("div");
+      confettiContainer.style.position = "fixed";
+      confettiContainer.style.top = "0";
+      confettiContainer.style.left = "0";
+      confettiContainer.style.width = "100vw";
+      confettiContainer.style.height = "100vh";
+      confettiContainer.style.pointerEvents = "none";
+      confettiContainer.style.overflow = "hidden";
+      document.body.appendChild(confettiContainer);
+
+      for (let i = 0; i < 100; i++) {
+        let confetti = document.createElement("div");
+        confetti.style.position = "absolute";
+        confetti.style.width = "10px";
+        confetti.style.height = "10px";
+        confetti.style.backgroundColor = ["red", "blue", "yellow", "green", "pink"][Math.floor(Math.random() * 5)];
+        confetti.style.left = `${Math.random() * 100}vw`;
+        confetti.style.top = "-10px";
+        confetti.style.opacity = Math.random();
+        confetti.style.transform = `rotate(${Math.random() * 360}deg)`;
+        confetti.style.animation = `fall ${Math.random() * 3 + 2}s linear forwards`;
+
+        confettiContainer.appendChild(confetti);
+      }
+
+      setTimeout(() => {
+        confettiContainer.remove();
+      }, 4000);
+    }
+
+    const style = document.createElement("style");
+    style.innerHTML = `
+      @keyframes fall {
+        to { transform: translateY(100vh) rotate(720deg); }
+      }
+    `;
+    document.head.appendChild(style);
+
+    img.onload = resizeCanvas;
     window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
   </script>
 </body>
 </html>
