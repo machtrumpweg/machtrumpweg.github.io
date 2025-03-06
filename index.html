@@ -4,16 +4,19 @@
   <meta charset="UTF-8">
   <title>Mach Trump Weg</title>
   <style>
-    /* Grundlayout */
     body, html {
       margin: 0;
       padding: 0;
       height: 100%;
       text-align: center;
       font-family: sans-serif;
+      overflow: hidden;
     }
     header {
-      padding: 20px;
+      padding: 10px;
+      background-color: white;
+      position: relative;
+      z-index: 10;
     }
     .title-small {
       font-size: 1.2em;
@@ -23,66 +26,101 @@
       font-size: 3em;
       margin: 0;
     }
-    /* Canvas-Container füllt den restlichen Platz */
     #canvas-container {
       position: relative;
       width: 100%;
-      height: calc(100% - 150px); /* Platz für Header und Toolbar */
-      overflow: hidden;
+      height: calc(100% - 120px);
+      background: black;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
     canvas {
-      width: 100%;
-      height: 100%;
-      display: block;
-      object-fit: cover;
+      max-width: 100%;
+      max-height: 100%;
     }
-    /* Toolbar am unteren Rand */
     #toolbar {
-      padding: 10px;
-      background-color: #f0f0f0;
+      position: fixed;
+      bottom: 0;
       width: 100%;
+      background-color: #f0f0f0;
+      padding: 10px;
+    }
+    #successMessage {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: white;
+      padding: 20px;
+      font-size: 2em;
+      display: none;
+      border: 3px solid green;
+    }
+    .confetti {
+      position: fixed;
+      width: 10px;
+      height: 10px;
+      background-color: red;
+      border-radius: 50%;
+      opacity: 0.7;
+      animation: fall 2s linear infinite;
+    }
+    @keyframes fall {
+      0% { transform: translateY(-100vh) translateX(0); }
+      100% { transform: translateY(100vh) translateX(50px); }
     }
   </style>
 </head>
 <body>
-  <!-- Kopfzeile -->
   <header>
     <h3 class="title-small">Die offizielle</h3>
     <h1 class="title-big">Mach Trump Weg</h1>
     <h3 class="title-small">Seite</h3>
   </header>
 
-  <!-- Hauptbereich mit Canvas -->
   <div id="canvas-container">
     <canvas id="trumpCanvas"></canvas>
   </div>
 
-  <!-- Toolbar mit Revert-Button -->
   <div id="toolbar">
     <button id="revertButton">Revert Trump</button>
   </div>
 
+  <div id="successMessage">Trump wurde erfolgreich entfernt! 🎉</div>
+
   <script>
     const canvas = document.getElementById('trumpCanvas');
     const ctx = canvas.getContext('2d');
-    let isDrawing = false;
     const image = new Image();
     image.crossOrigin = "Anonymous";
-    // Ersetze diesen Link durch ein satirisches Trump-Bild
-    image.src = "https://raw.githubusercontent.com/machtrumpweg/machtrumpweg.github.io/refs/heads/main/TrumpPortrait.jpg";
+    image.src = "https://CodeDevProjects.github.io/CodeDevProjects.github.io/img/trump.png"; // Eigener Bildlink
 
-    // Canvas-Größe anpassen
+    let isDrawing = false;
+    let erasedPixels = 0;
+    let totalPixels = 0;
+    let eraserSize;
+
     function resizeCanvas() {
       canvas.width = canvas.offsetWidth;
       canvas.height = canvas.offsetHeight;
-      if (image.complete) {
-        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-      }
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      calculateTotalPixels();
+      adjustEraserSize();
     }
-    window.addEventListener('resize', resizeCanvas);
-    image.onload = resizeCanvas;
 
-    // Mausposition relativ zum Canvas ermitteln
+    function adjustEraserSize() {
+      eraserSize = Math.max(20, Math.min(canvas.width, canvas.height) * 0.05); // Anpassung für große und kleine Bildschirme
+    }
+
+    function calculateTotalPixels() {
+      totalPixels = canvas.width * canvas.height;
+      erasedPixels = 0;
+    }
+
+    image.onload = resizeCanvas;
+    window.addEventListener('resize', resizeCanvas);
+
     function getMousePos(evt) {
       const rect = canvas.getBoundingClientRect();
       return {
@@ -91,50 +129,93 @@
       };
     }
 
-    // Eraser-Funktion: Mit destination-out werden Bereiche "ausradiert"
-    function erase(evt) {
-      const pos = getMousePos(evt);
+    function erase(x, y) {
       ctx.globalCompositeOperation = 'destination-out';
       ctx.beginPath();
-      ctx.arc(pos.x, pos.y, 20, 0, Math.PI * 2, false);
+      ctx.arc(x, y, eraserSize, 0, Math.PI * 2, false);
       ctx.fill();
       ctx.globalCompositeOperation = 'source-over';
+      countErasedPixels();
     }
 
-    // Ereignis-Listener für das Zeichnen
-    canvas.addEventListener('mousedown', (evt) => {
-      isDrawing = true;
-      erase(evt);
-      resetRestoreTimeout();
-    });
-    canvas.addEventListener('mousemove', (evt) => {
-      if (isDrawing) {
-        erase(evt);
-        resetRestoreTimeout();
+    function countErasedPixels() {
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      let transparentPixels = 0;
+      for (let i = 3; i < imageData.data.length; i += 4) {
+        if (imageData.data[i] === 0) {
+          transparentPixels++;
+        }
       }
-    });
-    canvas.addEventListener('mouseup', () => {
-      isDrawing = false;
-    });
-    canvas.addEventListener('mouseleave', () => {
-      isDrawing = false;
-    });
+      erasedPixels = transparentPixels;
+      if (erasedPixels / totalPixels > 0.99) {
+        showSuccess();
+      }
+    }
 
-    // Revert-Button: Bild neu laden
-    document.getElementById('revertButton').addEventListener('click', () => {
+    function showSuccess() {
+      document.getElementById("successMessage").style.display = "block";
+      createConfetti();
+      setTimeout(() => {
+        document.getElementById("successMessage").style.display = "none";
+        revertImage();
+      }, 3000);
+    }
+
+    function createConfetti() {
+      for (let i = 0; i < 100; i++) {
+        let confetti = document.createElement("div");
+        confetti.classList.add("confetti");
+        confetti.style.backgroundColor = ["red", "blue", "yellow", "green", "pink"][Math.floor(Math.random() * 5)];
+        confetti.style.left = Math.random() * 100 + "vw";
+        confetti.style.animationDuration = Math.random() * 2 + 1 + "s";
+        document.body.appendChild(confetti);
+        setTimeout(() => confetti.remove(), 2000);
+      }
+    }
+
+    function revertImage() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      calculateTotalPixels();
+    }
+
+    document.getElementById('revertButton').addEventListener('click', revertImage);
+
+    canvas.addEventListener('mousedown', (evt) => {
+      isDrawing = true;
+      let pos = getMousePos(evt);
+      erase(pos.x, pos.y);
     });
 
-    // Automatische Wiederherstellung nach Inaktivität (10 Sekunden)
-    let restoreTimeout;
-    function resetRestoreTimeout() {
-      clearTimeout(restoreTimeout);
-      restoreTimeout = setTimeout(() => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-      }, 10000);
-    }
+    canvas.addEventListener('mousemove', (evt) => {
+      if (isDrawing) {
+        let pos = getMousePos(evt);
+        erase(pos.x, pos.y);
+      }
+    });
+
+    canvas.addEventListener('mouseup', () => isDrawing = false);
+    canvas.addEventListener('mouseleave', () => isDrawing = false);
+
+    // Touch-Support für Mobile
+    canvas.addEventListener('touchstart', (evt) => {
+      evt.preventDefault();
+      isDrawing = true;
+      let touch = evt.touches[0];
+      let pos = getMousePos(touch);
+      erase(pos.x, pos.y);
+    });
+
+    canvas.addEventListener('touchmove', (evt) => {
+      evt.preventDefault();
+      if (isDrawing) {
+        let touch = evt.touches[0];
+        let pos = getMousePos(touch);
+        erase(pos.x, pos.y);
+      }
+    });
+
+    canvas.addEventListener('touchend', () => isDrawing = false);
   </script>
 </body>
 </html>
