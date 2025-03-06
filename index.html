@@ -127,7 +127,8 @@
     let isDrawing = false;
     let erasedPixels = 0;
     let totalPixels = 0;
-    let eraserSize = Math.max(window.innerWidth / 20, 30);
+    let eraserSize = Math.max(window.innerWidth * 0.05, 20);
+
 
     const img = new Image();
     img.crossOrigin = "Anonymous";
