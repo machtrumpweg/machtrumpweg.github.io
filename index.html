@@ -4,53 +4,101 @@
   <meta charset="UTF-8">
   <title>Mach Trump Weg</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; overflow: hidden; }
-    body, html {
+    /* Reset und Basis-Styling */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
       height: 100%;
-      text-align: center;
-      font-family: sans-serif;
-      background-color: black;
+      overflow: hidden;
+      font-family: 'Arial', sans-serif;
+      background: linear-gradient(135deg, #1e1e1e, #333);
+      color: #222;
     }
+    /* Header */
     header {
-      padding: 10px;
-      background-color: white;
-      position: relative;
+      background-color: #fff;
+      padding: 15px;
+      text-align: center;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
       z-index: 10;
+      position: relative;
     }
-    .title-small { font-size: 1.2em; margin: 0; }
-    .title-big { font-size: 3em; margin: 0; }
-    
+    .title-small {
+      font-size: 1.2em;
+      color: #666;
+    }
+    .title-big {
+      font-size: 3em;
+      color: #222;
+      margin: 5px 0;
+    }
+    /* Canvas-Container */
     #canvas-container {
       width: 100%;
-      height: calc(100vh - 120px);
+      height: calc(100vh - 140px); /* 140px = Header + Toolbar */
       display: flex;
       justify-content: center;
       align-items: center;
+      background: #000;
     }
-    
     canvas {
-      background-color: black;
+      /* Das Bild wird über JS ins Canvas gezeichnet.
+         Hier keine CSS-Hintergrundbilder mehr, damit es nicht gestreckt wird. */
+      background-color: #000;
     }
-    
+    /* Toolbar und Footer */
     #toolbar {
       position: fixed;
       bottom: 0;
+      left: 0;
       width: 100%;
-      background-color: #f0f0f0;
-      padding: 10px;
+      background: #fff;
+      box-shadow: 0 -2px 5px rgba(0,0,0,0.2);
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
     }
-
+    #toolbar button {
+      padding: 8px 16px;
+      font-size: 1em;
+      border: none;
+      background: #007acc;
+      color: #fff;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    #toolbar button:hover {
+      background: #005fa3;
+    }
+    #toolbar a {
+      text-decoration: none;
+      font-size: 0.9em;
+      color: #007acc;
+      transition: color 0.3s;
+    }
+    #toolbar a:hover {
+      color: #005fa3;
+    }
+    /* Erfolgsmeldung – Overlay über alles */
     #successMessage {
       position: fixed;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      background-color: white;
-      padding: 20px;
+      background: #fff;
+      padding: 20px 30px;
       font-size: 2em;
-      display: none;
       border: 3px solid green;
-      z-index: 20;
+      border-radius: 8px;
+      z-index: 9999;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+      display: none;
+    }
+    /* Konfetti-Animation */
+    @keyframes fall {
+      to { transform: translateY(100vh) rotate(720deg); }
     }
   </style>
 </head>
@@ -67,6 +115,7 @@
 
   <div id="toolbar">
     <button id="revertButton">Revert Trump</button>
+    <a href="impressum.html" target="_blank">Impressum</a>
   </div>
 
   <div id="successMessage">Trump wurde erfolgreich entfernt! 🎉</div>
@@ -84,22 +133,41 @@
     img.crossOrigin = "Anonymous";
     img.src = "https://raw.githubusercontent.com/machtrumpweg/machtrumpweg.github.io/refs/heads/main/TrumpPortrait.jpg";
 
+    // Passt das Canvas an die Fenstergröße an
     function resizeCanvas() {
       canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight - 120;
+      canvas.height = window.innerHeight - 140; // Header + Toolbar
+      eraserSize = Math.max(canvas.width / 20, 30);
       drawBackground();
     }
 
+    // Zeichnet das Bild ins Canvas (ohne Stretching, Seitenverhältnis beibehalten)
     function drawBackground() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      // Berechne das beste "contain"-Maß:
+      let ratio = Math.min(canvas.width / img.width, canvas.height / img.height);
+      let imgW = img.width * ratio;
+      let imgH = img.height * ratio;
+      let offsetX = (canvas.width - imgW) / 2;
+      let offsetY = (canvas.height - imgH) / 2;
+      ctx.drawImage(img, offsetX, offsetY, imgW, imgH);
       calculateTotalPixels();
     }
 
     function calculateTotalPixels() {
+      // Gesamtzahl der Pixel im Canvas
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       totalPixels = imageData.data.length / 4;
       erasedPixels = 0;
+    }
+
+    // Gibt Maus-/Touchposition relativ zum Canvas zurück
+    function getRelativePos(clientX, clientY) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: (clientX - rect.left) * (canvas.width / rect.width),
+        y: (clientY - rect.top) * (canvas.height / rect.height)
+      };
     }
 
     function erase(x, y) {
@@ -126,10 +194,11 @@
     }
 
     function showSuccess() {
-      document.getElementById("successMessage").style.display = "block";
+      const successMsg = document.getElementById("successMessage");
+      successMsg.style.display = "block";
       throwConfetti();
       setTimeout(() => {
-        document.getElementById("successMessage").style.display = "none";
+        successMsg.style.display = "none";
         revertImage();
       }, 3000);
     }
@@ -140,38 +209,40 @@
 
     document.getElementById('revertButton').addEventListener('click', revertImage);
 
+    // Maus-Events
     canvas.addEventListener('mousedown', (evt) => {
       isDrawing = true;
-      erase(evt.offsetX, evt.offsetY);
+      let pos = getRelativePos(evt.clientX, evt.clientY);
+      erase(pos.x, pos.y);
     });
-
     canvas.addEventListener('mousemove', (evt) => {
       if (isDrawing) {
-        erase(evt.offsetX, evt.offsetY);
+        let pos = getRelativePos(evt.clientX, evt.clientY);
+        erase(pos.x, pos.y);
       }
     });
-
     canvas.addEventListener('mouseup', () => isDrawing = false);
     canvas.addEventListener('mouseleave', () => isDrawing = false);
 
-    // Touch-Support für Mobile
+    // Touch-Events für mobile Geräte
     canvas.addEventListener('touchstart', (evt) => {
       evt.preventDefault();
       isDrawing = true;
       let touch = evt.touches[0];
-      erase(touch.clientX, touch.clientY);
+      let pos = getRelativePos(touch.clientX, touch.clientY);
+      erase(pos.x, pos.y);
     });
-
     canvas.addEventListener('touchmove', (evt) => {
       evt.preventDefault();
       if (isDrawing) {
         let touch = evt.touches[0];
-        erase(touch.clientX, touch.clientY);
+        let pos = getRelativePos(touch.clientX, touch.clientY);
+        erase(pos.x, pos.y);
       }
     });
-
     canvas.addEventListener('touchend', () => isDrawing = false);
 
+    // Konfetti-Funktion
     function throwConfetti() {
       const confettiContainer = document.createElement("div");
       confettiContainer.style.position = "fixed";
@@ -180,7 +251,7 @@
       confettiContainer.style.width = "100vw";
       confettiContainer.style.height = "100vh";
       confettiContainer.style.pointerEvents = "none";
-      confettiContainer.style.overflow = "hidden";
+      confettiContainer.style.zIndex = "9999";
       document.body.appendChild(confettiContainer);
 
       for (let i = 0; i < 100; i++) {
@@ -188,21 +259,21 @@
         confetti.style.position = "absolute";
         confetti.style.width = "10px";
         confetti.style.height = "10px";
-        confetti.style.backgroundColor = ["red", "blue", "yellow", "green", "pink"][Math.floor(Math.random() * 5)];
+        const colors = ["#ff595e", "#ffca3a", "#8ac926", "#1982c4", "#6a4c93"];
+        confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
         confetti.style.left = `${Math.random() * 100}vw`;
-        confetti.style.top = "-10px";
+        confetti.style.top = `-10px`;
         confetti.style.opacity = Math.random();
         confetti.style.transform = `rotate(${Math.random() * 360}deg)`;
         confetti.style.animation = `fall ${Math.random() * 3 + 2}s linear forwards`;
-
         confettiContainer.appendChild(confetti);
       }
-
       setTimeout(() => {
         confettiContainer.remove();
       }, 4000);
     }
 
+    // CSS-Keyframes für Konfetti
     const style = document.createElement("style");
     style.innerHTML = `
       @keyframes fall {
